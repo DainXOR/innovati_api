@@ -215,12 +215,80 @@ export class studentsProcessor {
         return result;
     }
 
+    static async updateStudentState(req) {
+        const { document } = req.params;
+        const { active } = req.body;
+        let result = {};
+        let state = status.PROCESSING;
+        let message = "";
+        let data = {};
+
+        try {
+            if (document) studentsProcessor.validateDocument(document, {state});
+
+            let student = await studentSchema.findOne({
+                attributes: ["active", "updated_at"],
+                where: {
+                    document
+                }
+            });
+        
+            if (student) {
+                await studentSchema.update({
+                    active,
+                    updated_at: new Date()
+                }, {
+                    where: {
+                        document
+                    }
+                });
+        
+                student = await studentSchema.findOne({
+                    where: {
+                        document
+                    }
+                });
+                state = status.OK;
+                message = "Success";
+                data = {
+                    student
+                };
+            } else {
+                state = status.NOT_FOUND;
+                message = "Not found: Student not found";
+            }
+        } catch (error) {
+            state = status.INTERNAL_SERVER_ERROR;
+            message = error.message,
+            data = error
+        }
+
+        result = {
+            state,
+            message,
+            data
+        };
+        return result;
+    }
+
+    static async dataOf(document) {
+        if (document) studentsProcessor.validateDocument(document, {state});
+
+        const student = await studentSchema.findOne({
+            where: {
+                document
+            }
+        });
+    }
     static validateDocument(doc, stateRef) {
         const filteredDocument = Number.parseInt(doc);
             if (!Number.isInteger(filteredDocument)) {
                 stateRef.state = status.NOT_ACCEPTABLE;
                 throw new Error(`The id must be an integer (${doc})`);
             }
+    }
+    static validateDoc(document){
+        return Number.isInteger(Number.parseInt(document));
     }
     static validateStudent(req, stateRef) {
         const { document, name, lastname, email, phone } = req.body;
